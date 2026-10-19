@@ -12,10 +12,6 @@ on:
       - "backend/**"
       - ".github/workflows/backend.yml"
 
-defaults:
-  run:
-    working-directory: backend
-
 jobs:
   # ─────────────────────────────────────────────
   # Job 1: CI — type-check, build, test
@@ -36,15 +32,19 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
+        working-directory: backend
         run: npm ci
 
       - name: Type-check
+        working-directory: backend
         run: npx tsc --noEmit
 
       - name: Build
+        working-directory: backend
         run: npm run build
 
       - name: Test
+        working-directory: backend
         run: npm test
 
   # ─────────────────────────────────────────────
@@ -61,31 +61,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
-
       - name: Install Vercel CLI
         run: npm install -g vercel@37
 
+      # Write .vercel/project.json at repo root — this is where Vercel CLI looks
       - name: Create .vercel/project.json
         run: |
           mkdir -p .vercel
-          echo '{
-            "projectId": "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}",
-            "orgId": "${{ secrets.VERCEL_ORG_ID }}"
-          }' > .vercel/project.json
-        working-directory: backend
+          printf '{"projectId":"%s","orgId":"%s"}\n' \
+            "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" \
+            "${{ secrets.VERCEL_ORG_ID }}" \
+            > .vercel/project.json
+          cat .vercel/project.json
 
       - name: Deploy to Vercel (production)
         if: github.ref == 'refs/heads/main'
-        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: backend
+        run: vercel deploy ./backend --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel (preview)
         if: github.ref != 'refs/heads/main'
-        run: vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: backend
+        run: vercel deploy ./backend --token=${{ secrets.VERCEL_TOKEN }}
